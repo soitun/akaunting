@@ -72,6 +72,9 @@ const app = new Vue({
             },
             dropdown_visible: true,
             dynamic_taxes: [],
+            recalculate_taxes: false,
+            taxes_out_of_date: false,
+            original_tax_rates: {},
             show_discount: false,
             show_discount_text: true,
             delete_discount: false,
@@ -308,6 +311,8 @@ const app = new Vue({
         },
 
         onCalculateTotal() {
+            this.taxes_out_of_date = false;
+
             let global_discount = parseFloat(this.form.discount);
             let total_discount = 0;
             let line_item_discount_total = 0;
@@ -354,9 +359,14 @@ const app = new Vue({
                 grand_total += item.grand_total;
 
                 let item_tax_ids = [];
+                let item_tax_rates = {};
 
                 item.tax_ids.forEach(function(item_tax, item_tax_index) {
                     item_tax_ids.push(item_tax.id);
+
+                    if (item_tax.rate !== undefined && item_tax.rate !== null) {
+                        item_tax_rates[item_tax.id] = item_tax.rate;
+                    }
                 });
 
                 this.form.items[index].name = item.name;
@@ -364,6 +374,7 @@ const app = new Vue({
                 this.form.items[index].quantity = item.quantity;
                 this.form.items[index].price = item.price;
                 this.form.items[index].tax_ids = item_tax_ids;
+                this.form.items[index].tax_rates = item_tax_rates;
                 this.form.items[index].discount = item.discount;
                 this.form.items[index].discount_type = item.discount_type;
                 this.form.items[index].total = item.total;
@@ -413,13 +424,26 @@ const app = new Vue({
                             continue;
                         }
 
+                        // Prefer the rate this document was charged at so that merely
+                        // opening the form does not reprice existing taxes. A line that
+                        // has no charged rate yet uses the tax's current rate.
+                        let charged_rate = (item_tax.rate !== undefined && item_tax.rate !== null)
+                            ? parseFloat(item_tax.rate)
+                            : tax.rate;
+
+                        item_tax.rate = charged_rate;
+
+                        if (parseFloat(charged_rate) !== parseFloat(tax.rate)) {
+                            this.taxes_out_of_date = true;
+                        }
+
                         switch (tax.type) {
                             case 'inclusive':
                                 inclusives.push({
                                     tax_index: item_tax_index,
                                     tax_id: tax.id,
                                     tax_name: tax.title,
-                                    tax_rate: tax.rate
+                                    tax_rate: charged_rate
                                 });
                                 break;
                             case 'compound':
@@ -427,7 +451,7 @@ const app = new Vue({
                                     tax_index: item_tax_index,
                                     tax_id: tax.id,
                                     tax_name: tax.title,
-                                    tax_rate: tax.rate
+                                    tax_rate: charged_rate
                                 });
                                 break;
                             case 'fixed':
@@ -435,7 +459,7 @@ const app = new Vue({
                                     tax_index: item_tax_index,
                                     tax_id: tax.id,
                                     tax_name: tax.title,
-                                    tax_rate: tax.rate
+                                    tax_rate: charged_rate
                                 });
                                 break;
                             case 'withholding':
@@ -443,7 +467,7 @@ const app = new Vue({
                                     tax_index: item_tax_index,
                                     tax_id: tax.id,
                                     tax_name: tax.title,
-                                    tax_rate: tax.rate
+                                    tax_rate: charged_rate
                                 });
                                 break;
                             default:
@@ -451,7 +475,7 @@ const app = new Vue({
                                     tax_index: item_tax_index,
                                     tax_id: tax.id,
                                     tax_name: tax.title,
-                                    tax_rate: tax.rate
+                                    tax_rate: charged_rate
                                 });
                                 break;
                         }
@@ -940,6 +964,7 @@ const app = new Vue({
                     item_taxes.push({
                         id: item_tax.tax_id,
                         name: item_tax.name,
+                        rate: item_tax.rate,
                         price: (item_tax.amount).toFixed(this.currency.precision ?? 2),
                     });
                 }, this);
@@ -1038,6 +1063,31 @@ const app = new Vue({
     },
 
     watch: {
+        recalculate_taxes: function (value) {
+            this.items.forEach(function (item, index) {
+                if (! item.tax_ids) {
+                    return;
+                }
+
+                item.tax_ids.forEach(function (item_tax) {
+                    let key = index + '-' + item_tax.id;
+
+                    if (value) {
+                        if (this.original_tax_rates[key] === undefined) {
+                            this.original_tax_rates[key] = item_tax.rate;
+                        }
+
+                        // Dropping the charged rate makes the current one apply
+                        item_tax.rate = null;
+                    } else if (this.original_tax_rates[key] !== undefined) {
+                        item_tax.rate = this.original_tax_rates[key];
+                    }
+                }, this);
+            }, this);
+
+            this.onCalculateTotal();
+        },
+
         'form.discount': function (newVal, oldVal) {
             if (typeof newVal !== 'string') {
                 return;

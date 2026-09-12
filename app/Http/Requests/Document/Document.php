@@ -55,6 +55,7 @@ class Document extends FormRequest
             'amount'                => 'required',
             'items.*.name'          => 'required|string|max:255',
             'items.*.price'         => 'required|amount',
+            'items.*.tax_rates.*'   => 'nullable|numeric|min:0',
             'currency_code'         => 'required|string|currency',
             'currency_rate'         => 'required|gt:0',
             'contact_id'            => 'required|integer',

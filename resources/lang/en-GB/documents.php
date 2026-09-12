@@ -101,4 +101,10 @@ return [
     ],
 
     'empty_attachments'         => 'There are no files attached to this :type.',
+
+    'tax_rate' => [
+        'changed_title'         => 'Tax rates have changed since this record was created',
+        'changed_description'   => 'The amounts below use the rates that were charged at the time. Saving keeps them unchanged.',
+        'recalculate'           => 'Recalculate taxes using the current rates',
+    ],
 ];
