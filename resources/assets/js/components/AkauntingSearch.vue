@@ -919,10 +919,13 @@ export default {
         }
 
         if (this.value) {
-            this.value = this.value.replace(/\s+[a-zA-Z\w]+[<=]+/g, '-to-');
-            this.value = this.value.replace('>=', ':');
+            // Normalise a local copy: mutating the prop triggers a Vue warning
+            // and would be discarded on a parent re-render anyway.
+            let value = this.value
+                .replace(/\s+[a-zA-Z\w]+[<=]+/g, '-to-')
+                .replace('>=', ':');
 
-            let search_string = this.value.replace('not ', '').replace(' not ', ' ');
+            let search_string = value.replace('not ', '').replace(' not ', ' ');
 
             search_string = search_string.split(' ');
 
@@ -939,11 +942,14 @@ export default {
                     let operator = '=';
                     let value = '';
                     let value_assigned = false;
+                    let matched = false;
 
                     this.filter_list.forEach(function (_filter, i) {
                         let filter_values = this.convertOption(_filter.values);
 
                         if (_filter.key == filter[0]) {
+                            matched = true;
+
                             option = _filter.value;
                             operator = _filter.operator;
 
@@ -1011,6 +1017,15 @@ export default {
                             }
                         }
                     }, this);
+
+                    if (! matched) {
+                        // Not a known filter key, so keep the token as a plain
+                        // search term instead of pushing an empty chip and
+                        // dropping the value altogether.
+                        search_values.push(string.replace(/[\"]+/g, ''));
+
+                        return;
+                    }
 
                     this.filtered.push({
                         option: option,
