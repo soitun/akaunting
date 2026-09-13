@@ -75,6 +75,8 @@ const app = new Vue({
             recalculate_taxes: false,
             taxes_out_of_date: false,
             original_tax_rates: {},
+            tax_rate_note: '',
+            percent_position: 'after',
             show_discount: false,
             show_discount_text: true,
             delete_discount: false,
@@ -401,6 +403,34 @@ const app = new Vue({
             }, this);
 
             this.currencyConversion();
+        },
+
+        // True when the line was charged at a rate the tax no longer has, which is
+        // what the hint next to the line explains.
+        taxRateChanged(row_tax) {
+            if (! row_tax || row_tax.rate === undefined || row_tax.rate === null) {
+                return false;
+            }
+
+            let tax = this.dynamic_taxes.find(function (item) {
+                return item.id == row_tax.id;
+            });
+
+            return !! tax && parseFloat(tax.rate) !== parseFloat(row_tax.rate);
+        },
+
+        // Mirrors Tax::getTitleAttribute() so the charged rate reads the same
+        // way the tax's own title does elsewhere (fixed taxes have no %).
+        formatTaxRate(row_tax) {
+            if (row_tax.type === 'fixed') {
+                return row_tax.rate;
+            }
+
+            return (this.percent_position === 'before') ? ('%' + row_tax.rate) : (row_tax.rate + '%');
+        },
+
+        taxRateNote(row_tax) {
+            return (this.tax_rate_note || '').replace(':rate', this.formatTaxRate(row_tax));
         },
 
         calculateItemTax(item, totals_taxes, total_discount_amount) {
@@ -965,6 +995,7 @@ const app = new Vue({
                         id: item_tax.tax_id,
                         name: item_tax.name,
                         rate: item_tax.rate,
+                        type: item_tax.type,
                         price: (item_tax.amount).toFixed(this.currency.precision ?? 2),
                     });
                 }, this);
@@ -1021,6 +1052,14 @@ const app = new Vue({
 
         if (typeof document_taxes !== 'undefined' && document_taxes) {
             this.dynamic_taxes = document_taxes;
+
+            if (typeof document_tax_rate_note !== 'undefined' && document_tax_rate_note) {
+                this.tax_rate_note = document_tax_rate_note;
+            }
+
+            if (typeof document_percent_position !== 'undefined' && document_percent_position) {
+                this.percent_position = document_percent_position;
+            }
         }
 
         if (getQueryVariable('senddocument')) {
