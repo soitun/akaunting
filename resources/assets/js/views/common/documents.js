@@ -405,6 +405,13 @@ const app = new Vue({
             this.currencyConversion();
         },
 
+        // Picking a different tax means the line is no longer charged at the
+        // previous tax's rate, so drop it and let the new tax's rate apply.
+        onChangeTaxRow(row_tax, tax_id) {
+            row_tax.id = tax_id;
+            row_tax.rate = null;
+        },
+
         // True when the line was charged at a rate the tax no longer has, which is
         // what the hint next to the line explains.
         taxRateChanged(row_tax) {
@@ -422,7 +429,13 @@ const app = new Vue({
         // Mirrors Tax::getTitleAttribute() so the charged rate reads the same
         // way the tax's own title does elsewhere (fixed taxes have no %).
         formatTaxRate(row_tax) {
-            if (row_tax.type === 'fixed') {
+            // The type belongs to the tax, not to the charged row, so it has to be
+            // looked up. Without this a fixed tax would read as a percentage.
+            let tax = this.dynamic_taxes.find(function (item) {
+                return item.id == row_tax.id;
+            });
+
+            if (tax && tax.type === 'fixed') {
                 return row_tax.rate;
             }
 

@@ -285,7 +285,7 @@
                                 :index="row_tax_index"
                             >
                                 <div v-if="taxRateChanged(row_tax)" class="absolute text-sm ltr:right-1/5 rtl:left-1/5 ltr:-ml-7 rtl:-mr-7">
-                                    <x-tooltip id="tooltip-tax-rate-changed" placement="top" size="w-48">
+                                    <x-tooltip dynamic-id="'tooltip-tax-rate-' + index + '-' + row_tax_index" placement="top" size="w-48">
                                         <x-icon icon="info" class="text-lg text-orange-500 cursor-help" />
 
                                         <x-slot name="message">
@@ -335,7 +335,7 @@
                                             'key' => 'id',
                                             'value' => 'title'
                                         ]) }}"
-                                        @interface="row_tax.id = $event"
+                                        @interface="onChangeTaxRow(row_tax, $event)"
                                         @change="onCalculateTotal()"
                                         @new="dynamic_taxes.push($event)"
                                         :form-error="form.errors.get('items.' + index + '.taxes')"
